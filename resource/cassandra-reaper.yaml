@@ -7,7 +7,7 @@ repairIntensity: 0.9
 scheduleDaysBetween: 7
 repairRunThreadCount: 15
 hangingRepairTimeoutMins: 30
-storageType: memory
+storageType: cassandra
 enableCrossOrigin: true
 incrementalRepair: false
 jmxPorts:
@@ -21,10 +21,10 @@ jmxPorts:
   127.0.0.8: 7800
 
 logging:
-  level: INFO
+  level: DEBUG
   loggers:
-    io.dropwizard: INFO
-    org.eclipse.jetty: INFO
+    io.dropwizard: DEBUG
+    org.eclipse.jetty: WARN
   appenders:
     - type: console
       logFormat: "%-6level [%d] [%t] %logger{5} - %msg %n"
@@ -45,3 +45,8 @@ database:
   user: postgres
   password: postgres
   url: jdbc:postgresql://127.0.0.1/reaper
+
+cassandra:
+  clusterName: "test36"
+  contactPoints: ["127.0.0.1","127.0.0.2"]
+  keyspace: reaper_db
