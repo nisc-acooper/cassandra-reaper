@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS repair_schedule (
   state              TEXT                    ,
   days_between       int                ,
   next_activation    timestamp,
-  run_history        set<int>,
+  run_history        set<bigint>,
   segment_count      INT                     ,
   repair_parallelism TEXT                    ,
   intensity          double                    ,

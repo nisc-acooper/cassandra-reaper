@@ -23,6 +23,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.spotify.reaper.ReaperApplicationConfiguration;
 import com.spotify.reaper.core.Cluster;
 import com.spotify.reaper.core.RepairRun;
@@ -76,6 +77,8 @@ public class CassandraStorage implements IStorage {
 	private PreparedStatement insertRepairScheduleByClusterAndKsPrepStmt;
 	private PreparedStatement deleteRepairSchedulePrepStmt;
 	private PreparedStatement deleteRepairScheduleByClusterAndKsPrepStmt;
+	private PreparedStatement deleteRepairSegmentPrepStmt;
+	private PreparedStatement deleteRepairSegmentByRunId;
 	
 	public CassandraStorage(ReaperApplicationConfiguration config, Environment environment) {
 		cassandra = config.getCassandraFactory().build(environment);
@@ -98,6 +101,8 @@ public class CassandraStorage implements IStorage {
 		deleteRepairRunPrepStmt = session.prepare("DELETE FROM repair_run WHERE id = ?");
 		deleteRepairRunByClusterPrepStmt = session.prepare("DELETE FROM repair_run_by_cluster WHERE id = ? and cluster_name = ?");
 		deleteRepairRunByUnitPrepStmt = session.prepare("DELETE FROM repair_run_by_unit WHERE id = ? and repair_unit_id= ?");
+		deleteRepairSegmentPrepStmt = session.prepare("DELETE FROM repair_segment WHERE id = ?");
+		deleteRepairSegmentByRunId = session.prepare("DELETE FROM repair_segment_by_run_id WHERE run_id = ? and segment_id = ?");
 		insertRepairUnitPrepStmt = session.prepare("INSERT INTO repair_unit(id, cluster_name, keyspace_name, column_families, incremental_repair) VALUES(?, ?, ?, ?, ?)");
 		getRepairUnitPrepStmt = session.prepare("SELECT * FROM repair_unit WHERE id = ?");
 		insertRepairSegmentPrepStmt = session.prepare("INSERT INTO repair_segment(id, repair_unit_id, run_id, start_token, end_token, state, coordinator_host, start_time, end_time, fail_count) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -283,6 +288,20 @@ public class CassandraStorage implements IStorage {
 			batch.add(deleteRepairRunByClusterPrepStmt.bind(id, repairRun.get().getClusterName()));
 			batch.add(deleteRepairRunByUnitPrepStmt.bind(id, repairRun.get().getRepairUnitId()));
 			session.execute(batch);
+		}
+		
+		// Delete all segments for the run we've deleted
+		List<ResultSetFuture> futures= Lists.newArrayList(); 
+		Collection<RepairSegment> segments = getRepairSegmentsForRun(id);
+		int i=0;
+		final int nbSegments = segments.size();
+		for(RepairSegment segment:segments){
+			futures.add(session.executeAsync(deleteRepairSegmentPrepStmt.bind(segment.getId())));
+			futures.add(session.executeAsync(deleteRepairSegmentByRunId.bind(id, segment.getId())));
+			i++;
+			if(i%100==0 || i==nbSegments-1){
+				futures.stream().forEach(f -> f.getUninterruptibly());
+			}
 		}
 		
 		return repairRun;
@@ -588,18 +607,21 @@ public class CassandraStorage implements IStorage {
 	@Override
 	public boolean updateRepairSchedule(RepairSchedule newRepairSchedule) {
 		BatchStatement batch = new BatchStatement();
+		final Set<Long> repairHistory = Sets.newHashSet();
+		repairHistory.addAll(newRepairSchedule.getRunHistory());
+		
 		batch.add(insertRepairSchedulePrepStmt.bind(newRepairSchedule.getId(), 
 										  newRepairSchedule.getRepairUnitId(), 
 										  newRepairSchedule.getState().toString(), 
 										  newRepairSchedule.getDaysBetween(), 
-										  newRepairSchedule.getNextActivation().toDate(), 
-										  newRepairSchedule.getRunHistory(), 
+										  newRepairSchedule.getNextActivation(), 
+										  repairHistory, 
 										  newRepairSchedule.getSegmentCount(),
 										  newRepairSchedule.getRepairParallelism().toString(), 
 										  newRepairSchedule.getIntensity(), 
-										  newRepairSchedule.getCreationTime().toDate(), 
+										  newRepairSchedule.getCreationTime(), 
 										  newRepairSchedule.getOwner(), 
-										  newRepairSchedule.getPauseTime().toDate())
+										  newRepairSchedule.getPauseTime())
 		);
 		RepairUnit repairUnit = getRepairUnit(newRepairSchedule.getRepairUnitId()).get();
 		batch.add(insertRepairScheduleByClusterAndKsPrepStmt.bind(repairUnit.getClusterName(), repairUnit.getKeyspaceName(), newRepairSchedule.getId()));

@@ -3,18 +3,19 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-    <name>Cassandra Reaper</name>
-    <groupId>com.spotify</groupId>
-    <artifactId>cassandra-reaper</artifactId>
-    <version>0.3.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
+	<name>Cassandra Reaper</name>
+	<groupId>com.spotify</groupId>
+	<artifactId>cassandra-reaper</artifactId>
+	<version>0.3.0-SNAPSHOT</version>
+	<packaging>jar</packaging>
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <dropwizard.version>0.7.1</dropwizard.version>
-        <cassandra.version>2.1.16</cassandra.version>
-        <cucumber.version>1.1.5</cucumber.version>
-    </properties>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<dropwizard.version>0.7.1</dropwizard.version>
+		<dropwizard.cassandra.version>4.0.0</dropwizard.cassandra.version>
+		<cassandra.version>2.1.16</cassandra.version>
+		<cucumber.version>1.1.5</cucumber.version>
+	</properties>
 
 	<dependencies>
 		<!--compile scope -->
@@ -58,13 +59,11 @@
 			<artifactId>postgresql</artifactId>
 			<version>9.3-1100-jdbc41</version>
 		</dependency>
-
 		<dependency>
 			<groupId>systems.composable</groupId>
 			<artifactId>dropwizard-cassandra</artifactId>
-			<version>${dropwizard-cassandra.version}</version>
+			<version>${dropwizard.cassandra.version}</version>
 		</dependency>
-
 		<!--test scope -->
 		<dependency>
 			<groupId>junit</groupId>
@@ -105,13 +104,13 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.1</version>
 				<configuration>
-					<source>1.7</source>
-					<target>1.7</target>
+					<source>1.8</source>
+					<target>1.8</target>
 					<encoding>UTF-8</encoding>
 				</configuration>
 			</plugin>
 			<plugin>
-				<!-- To know which version of your application you have deployed on a
+				<!-- To know which version of your application you have deployed on a 
 					machine -->
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
@@ -125,7 +124,7 @@
 				</configuration>
 			</plugin>
 			<plugin>
-				<!-- Creating a fat jar by including all classes required for running
+				<!-- Creating a fat jar by including all classes required for running 
 					the app -->
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>

@@ -3,6 +3,7 @@ package com.spotify.reaper.resources;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.math.BigInteger;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -252,6 +253,25 @@ public class CommonTools {
                                    repairParallelism, intensity,
                                    DateTime.now());
     scheduleBuilder.owner(owner);
+    
+    Collection<RepairSchedule> repairSchedules = context.storage.getRepairSchedulesForClusterAndKeyspace(repairUnit.getClusterName(), repairUnit.getKeyspaceName());
+    for(RepairSchedule sched:repairSchedules){
+    	Optional<RepairUnit> repairUnitForSched = context.storage.getRepairUnit(sched.getRepairUnitId());
+    	if(repairUnitForSched.isPresent() && repairUnitForSched.get().getClusterName().equals(repairUnit.getClusterName()) && repairUnitForSched.get().getKeyspaceName().equals(repairUnit.getKeyspaceName())){
+    		if((repairUnitForSched.get().getColumnFamilies().size()==0 && repairUnit.getColumnFamilies().size()==0)
+    				|| repairUnitForSched.get().getColumnFamilies().size()==0 && repairUnit.getColumnFamilies().size()!=0
+    				|| repairUnitForSched.get().getColumnFamilies().size()!=0 && repairUnit.getColumnFamilies().size()==0
+    				|| Sets.intersection(repairUnit.getColumnFamilies(),repairUnitForSched.get().getColumnFamilies()).size() >0){
+    			String errMsg = String.format("A repair schedule already exists for cluster \"%s\", "
+                    + "keyspace \"%s\", and column families: %s",
+                    cluster.getName(), repairUnit.getKeyspaceName(),
+                    Sets.intersection(repairUnit.getColumnFamilies(),repairUnitForSched.get().getColumnFamilies()));
+    				LOG.error(errMsg);
+					throw new ReaperException(errMsg);
+    		}
+    	}
+    }
+    
     RepairSchedule newRepairSchedule = context.storage.addRepairSchedule(scheduleBuilder);
     if (newRepairSchedule == null) {
       String errMsg = String.format("failed storing repair schedule for cluster \"%s\", "

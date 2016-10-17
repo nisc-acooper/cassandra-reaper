@@ -51,6 +51,7 @@ import com.spotify.reaper.ReaperApplication;
 import com.spotify.reaper.ReaperException;
 import com.spotify.reaper.core.Cluster;
 import com.spotify.reaper.core.RepairRun;
+import com.spotify.reaper.core.RepairRun.RunState;
 import com.spotify.reaper.core.RepairSegment;
 import com.spotify.reaper.core.RepairUnit;
 import com.spotify.reaper.resources.view.RepairRunStatus;
@@ -62,6 +63,7 @@ public class RepairRunResource {
   private static final Logger LOG = LoggerFactory.getLogger(RepairRunResource.class);
 
   private final AppContext context;
+  private Boolean alreadyRunning;
 
   public RepairRunResource(AppContext context) {
     this.context = context;
@@ -266,7 +268,7 @@ public class RepairRunResource {
                                                                + repairRunId + " not found")
           .build();
     }
-
+    
     Optional<RepairUnit> repairUnit =
         context.storage.getRepairUnit(repairRun.get().getRepairUnitId());
     if (!repairUnit.isPresent()) {
@@ -275,6 +277,20 @@ public class RepairRunResource {
       return Response.status(Response.Status.NOT_FOUND).entity(errMsg).build();
     }
 
+    // Check that no other repair run exists with a status different than DONE for this repair unit
+    Collection<RepairRun> repairRuns = context.storage.getRepairRunsForUnit(repairRun.get().getRepairUnitId());
+    
+    boolean alreadyRunning = false;
+    
+    for(RepairRun run:repairRuns){
+    	if(run.getId()!=repairRunId && run.getRunState().equals(RunState.RUNNING)){
+    		String errMsg = "repair unit already has run " + run.getId() + " in RUNNING state";
+		    LOG.error(errMsg);
+		    return Response.status(Response.Status.CONFLICT).entity(errMsg).build();
+    	}
+    }
+    	    
+    
     int segmentsRepaired =
         context.storage.getSegmentAmountForRepairRunWithState(repairRunId, RepairSegment.State.DONE);
 
